@@ -1,0 +1,4 @@
+name: Build Daily Reminder APK
+
+on:
+  workflow_dispatch:
