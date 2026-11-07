@@ -32,11 +32,53 @@ jobs:
       - name: Check Flutter
         run: flutter --version
 
+      
       - name: Generate Android project
         run: flutter create --platforms=android --project-name daily_reminder .
 
+      - name: Enable and verify core library desugaring
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          groovy = Path("android/app/build.gradle")
+          kotlin = Path("android/app/build.gradle.kts")
+
+          if groovy.exists():
+              p = groovy
+              enabled = "coreLibraryDesugaringEnabled true"
+              dependency = "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+          elif kotlin.exists():
+              p = kotlin
+              enabled = "isCoreLibraryDesugaringEnabled = true"
+              dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+          else:
+              raise SystemExit("ERROR: Android Gradle file not found")
+
+          s = p.read_text()
+
+          if enabled not in s:
+              if "compileOptions {" not in s:
+                  raise SystemExit("ERROR: compileOptions block not found")
+              s = s.replace("compileOptions {",
+                            "compileOptions {\n        " + enabled, 1)
+
+          if dependency not in s:
+              if "dependencies {" not in s:
+                  raise SystemExit("ERROR: dependencies block not found")
+              s = s.replace("dependencies {",
+                            "dependencies {\n    " + dependency, 1)
+
+          p.write_text(s)
+
+          print("SUCCESS: Desugaring configured in", p)
+          print("SUCCESS: Core library desugaring enabled")
+          PY
+
       - name: Get dependencies
         run: flutter pub get
+
 
       - name: Build APK
         run: flutter build apk --release
